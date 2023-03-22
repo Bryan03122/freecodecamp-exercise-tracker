@@ -81,9 +81,36 @@ app.post("/api/users/:_id/exercises", async function (req, res) {
 
 app.get("/api/users/:_id/logs", async function (req, res) {
   const { from, to, limit } = req.query;
-
+  const { _id } = req.params;
   return res.json(
-    await User.findById(_id, {})
+    await User.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(_id),
+        },
+      },
+      {
+        $project: {
+          username: 1,
+          log: {
+            $filter: {
+              input: "$exercises",
+              as: "exercise",
+              cond: {
+                $and: [
+                  {
+                    $gte: ["$$exercise.duration", +to],
+                  },
+                  {
+                    $lte: ["$$exercise.duration", +from],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ])
     // await User.find()
   );
 });
