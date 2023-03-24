@@ -100,13 +100,17 @@ app.get("/api/users/:_id/logs", async function (req, res) {
                 {
                   $lte: [
                     "$$exercise.date",
-                    to ? new Date(to) : { $max: "$$exercise.date" },
+                    !isNaN(new Date(to).getTime())
+                      ? new Date(to)
+                      : { $max: "$$exercise.date" },
                   ],
                 },
                 {
                   $gte: [
                     "$$exercise.date",
-                    from ? new Date(from) : { $min: "$$exercise.date" },
+                    !isNaN(new Date(from).getTime())
+                      ? new Date(from)
+                      : { $min: "$$exercise.date" },
                   ],
                 },
               ],
@@ -118,7 +122,9 @@ app.get("/api/users/:_id/logs", async function (req, res) {
     {
       $project: {
         username: 1,
-        log: { $slice: ["$log", limit ? +limit : { $size: "$exercises" }] },
+        log: {
+          $slice: ["$log", !isNaN(limit) ? +limit : { $size: "$exercises" }],
+        },
       },
     },
     {
