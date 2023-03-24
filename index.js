@@ -82,37 +82,65 @@ app.post("/api/users/:_id/exercises", async function (req, res) {
 app.get("/api/users/:_id/logs", async function (req, res) {
   const { from, to, limit } = req.query;
   const { _id } = req.params;
-  return res.json(
-    await User.aggregate([
-      {
-        $match: {
-          _id: new mongoose.Types.ObjectId(_id),
-        },
+
+  const users = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(_id),
       },
-      {
-        $project: {
-          username: 1,
-          log: {
-            $filter: {
-              input: "$exercises",
-              as: "exercise",
-              cond: {
-                $and: [
-                  {
-                    $gte: ["$$exercise.duration", +to],
-                  },
-                  {
-                    $lte: ["$$exercise.duration", +from],
-                  },
-                ],
-              },
+    },
+    {
+      $addFields: {
+        log: {
+          $filter: {
+            input: "$exercises",
+            as: "exercise",
+            cond: {
+              $and: [
+                {
+                  $lte: [
+                    "$$exercise.date",
+                    to ? new Date(to) : { $max: "$$exercise.date" },
+                  ],
+                },
+                {
+                  $gte: [
+                    "$$exercise.date",
+                    from ? new Date(from) : { $min: "$$exercise.date" },
+                  ],
+                },
+              ],
             },
           },
         },
       },
-    ])
-    // await User.find()
-  );
+    },
+    {
+      $project: {
+        username: 1,
+        log: { $slice: ["$log", limit ? +limit : { $size: "$exercises" }] },
+      },
+    },
+    {
+      $project: { username: 1, count: { $size: "$log" }, log: 1 },
+    },
+  ]);
+
+  const user = users[0];
+  user.log = user.log.map((log) => {
+    console.log(log);
+    delete log._id;
+    return {
+      ...log,
+      date: log.date.toDateString(),
+    };
+  });
+  return res.json({
+    _id: user._id,
+    username: user.username,
+    count: user.count,
+    log: user.log,
+  });
 });
 
 app.delete("/api/exercises", async function (req, res) {
